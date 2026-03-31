@@ -3,147 +3,296 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Smart Ledger Pro</title>
+    <title>Smart Ledger Pro - ✨ Multi-Device Sync</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-        body { font-family: 'Inter', sans-serif; background: #f1f5f9; color: #1e293b; touch-action: manipulation; }
+        body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #1e293b; touch-action: manipulation; }
         .tab-active { color: #10b981; border-bottom: 3px solid #10b981; }
-        .card { background: white; border-radius: 20px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); transition: all 0.2s; }
-        .btn-primary { background: #10b981; color: white; border-radius: 12px; transition: all 0.2s; }
+        .card { background: white; border-radius: 24px; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05); transition: all 0.2s; }
+        .btn-primary { background: #10b981; color: white; border-radius: 14px; transition: all 0.2s; }
         .btn-primary:active { transform: scale(0.95); }
         .ai-gradient { background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); }
+        .animate-pop { animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes pop { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        #chart-container { height: 180px; width: 100%; }
+        /* Mobile-first adjustments */
+        @media (max-width: 640px) {
+            header { padding-top: 3rem; padding-bottom: 5rem; }
+        }
     </style>
 </head>
 <body class="pb-32">
 
+    <!-- Auth Overlay (Hiển thị khi chưa đăng nhập) -->
+    <div id="auth-overlay" class="fixed inset-0 bg-slate-900 z-[200] flex items-center justify-center p-6 transition-all duration-500">
+        <div class="card p-8 w-full max-w-sm text-center shadow-2xl relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1.5 ai-gradient"></div>
+            <div class="w-20 h-20 ai-gradient rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-emerald-500/20">
+                <i class="fa-solid fa-cloud-arrow-up text-white text-3xl"></i>
+            </div>
+            <h2 class="text-2xl font-black text-slate-900 mb-2">Đồng bộ Đám mây</h2>
+            <p class="text-slate-500 text-sm mb-8 leading-relaxed">Đăng nhập để đồng bộ dữ liệu chi tiêu và công việc trên mọi thiết bị.</p>
+            <button id="login-btn" class="w-full py-4 btn-primary font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3">
+                <i class="fa-solid fa-bolt"></i> Bắt đầu ngay
+            </button>
+            <p class="mt-4 text-[10px] text-slate-400 uppercase font-bold tracking-widest">Dữ liệu được bảo mật bởi Gemini Cloud</p>
+        </div>
+    </div>
+
     <!-- Header -->
-    <header class="bg-slate-900 text-white pt-12 pb-24 px-6 rounded-b-[40px] shadow-xl relative overflow-hidden">
+    <header class="bg-slate-900 text-white pt-10 pb-20 px-6 rounded-b-[44px] shadow-2xl relative overflow-hidden">
+        <div class="absolute top-[-20%] right-[-10%] w-80 h-80 bg-emerald-500/10 rounded-full blur-[100px]"></div>
         <div class="max-w-md mx-auto relative z-10">
             <div class="flex justify-between items-center mb-6">
-                <h1 class="text-xl font-black tracking-tight"><i class="fa-solid fa-wallet text-emerald-400 mr-2"></i>SMART LEDGER</h1>
-                <span id="sync-indicator" class="text-[9px] bg-white/10 px-2 py-1 rounded-full text-slate-400">OFFLINE MODE</span>
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 ai-gradient rounded-lg flex items-center justify-center shadow-lg">
+                        <i class="fa-solid fa-sparkles text-white text-[10px]"></i>
+                    </div>
+                    <h1 class="text-lg font-black tracking-tighter uppercase">Cloud Ledger</h1>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div id="user-info" class="text-[9px] font-black bg-emerald-500/10 text-emerald-400 px-3 py-1.5 rounded-full border border-emerald-500/20 uppercase tracking-widest hidden">ID: ...</div>
+                    <button onclick="window.handleLogout()" class="text-slate-500 hover:text-rose-400 transition-colors"><i class="fa-solid fa-power-off text-sm"></i></button>
+                </div>
             </div>
             
-            <div class="relative">
-                <input id="main-input" type="text" 
-                    placeholder="Nhập: 'Ăn trưa 50k' hoặc 'Mua tã'" 
-                    class="w-full bg-white/10 border border-white/20 rounded-2xl py-4 pl-6 pr-14 text-white placeholder:text-slate-500 outline-none focus:bg-white/20 transition-all">
-                <button onclick="window.handleSubmit()" class="absolute right-2 top-2 bottom-2 btn-primary w-11 h-11 flex items-center justify-center">
-                    <i class="fa-solid fa-plus"></i>
-                </button>
+            <div class="relative group">
+                <input type="file" id="image-input" accept="image/*" class="hidden" onchange="window.handleImageUpload(this)">
+                <input id="main-input" type="text" placeholder="Ghi chú nhanh hoặc lệnh AI..." class="w-full bg-white/10 border border-white/20 rounded-2xl py-4 pl-6 pr-24 text-white placeholder:text-slate-500 outline-none focus:bg-white/20 focus:border-emerald-400/50 transition-all shadow-inner">
+                <div class="absolute right-2 top-2 bottom-2 flex gap-1">
+                    <button onclick="document.getElementById('image-input').click()" class="bg-white/10 hover:bg-white/20 text-white rounded-xl w-11 h-11 flex items-center justify-center transition-all"><i class="fa-solid fa-camera text-xs"></i></button>
+                    <button onclick="window.handleSubmit()" class="btn-primary w-11 h-11 flex items-center justify-center shadow-lg shadow-emerald-500/30"><i class="fa-solid fa-wand-magic-sparkles text-xs"></i></button>
+                </div>
             </div>
+            <div id="context-container" class="mt-3 flex flex-wrap gap-2 min-h-[20px]"></div>
         </div>
     </header>
 
-    <!-- Stats -->
-    <main class="max-w-md mx-auto px-5 -mt-12 relative z-20">
-        <div class="card p-6 mb-6 grid grid-cols-2 gap-4 border-none">
-            <div class="text-center border-r border-slate-100">
-                <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Đã chi</p>
-                <p id="total-money" class="text-xl font-black text-slate-800">0đ</p>
+    <!-- Main Content -->
+    <main class="max-w-md mx-auto px-5 -mt-10 relative z-20">
+        <!-- Dashboard Card -->
+        <div class="card p-6 mb-6 border-none shadow-2xl shadow-slate-200/50">
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="text-center border-r border-slate-100 py-1">
+                    <p class="text-[8px] text-slate-400 font-black uppercase tracking-widest mb-1">Chi tiêu (7D)</p>
+                    <p id="total-money" class="text-2xl font-black text-slate-800 tracking-tighter">0đ</p>
+                </div>
+                <div class="text-center py-1">
+                    <p class="text-[8px] text-slate-400 font-black uppercase tracking-widest mb-1">Việc tồn đọng</p>
+                    <p id="total-tasks" class="text-2xl font-black text-slate-800 tracking-tighter">0</p>
+                </div>
             </div>
-            <div class="text-center">
-                <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Việc cần làm</p>
-                <p id="total-tasks" class="text-xl font-black text-slate-800">0</p>
+            <div id="chart-container">
+                <canvas id="spendChart"></canvas>
             </div>
         </div>
 
-        <!-- Tabs -->
-        <div class="flex gap-6 mb-4 px-2">
-            <button id="tab-f" onclick="window.setTab('finance')" class="text-xs font-black tracking-widest tab-active pb-2 transition-all">TÀI CHÍNH</button>
-            <button id="tab-t" onclick="window.setTab('tasks')" class="text-xs font-black tracking-widest text-slate-400 pb-2 transition-all">CÔNG VIỆC</button>
+        <!-- Tab Navigation -->
+        <div class="flex gap-8 mb-6 px-4">
+            <button id="tab-f" onclick="window.setTab('finance')" class="text-[10px] font-black tracking-widest tab-active pb-2 transition-all uppercase">Tài chính</button>
+            <button id="tab-t" onclick="window.setTab('tasks')" class="text-[10px] font-black tracking-widest text-slate-400 pb-2 transition-all uppercase">Công việc</button>
         </div>
 
-        <!-- List -->
-        <div id="list-container" class="space-y-3"></div>
-
-        <!-- Clear -->
-        <div class="mt-10 text-center">
-            <button onclick="window.clearAll()" class="text-[10px] font-bold text-slate-400 hover:text-rose-500 uppercase tracking-widest transition-all">
-                <i class="fa-solid fa-trash-can mr-1"></i> Xóa dữ liệu máy
-            </button>
+        <!-- Items List -->
+        <div id="list-container" class="space-y-3">
+            <div class="flex flex-col items-center justify-center py-20 opacity-20">
+                <i class="fa-solid fa-cloud-arrow-down text-4xl mb-4"></i>
+                <p class="text-[10px] font-black uppercase tracking-widest">Đang tải dữ liệu đám mây...</p>
+            </div>
         </div>
     </main>
 
-    <!-- Bottom Nav -->
-    <nav class="fixed bottom-6 left-6 right-6 bg-slate-900 text-white rounded-3xl py-4 px-10 flex justify-between items-center shadow-2xl z-50">
-        <button onclick="window.setTab('finance')" class="hover:text-emerald-400 transition-all"><i class="fa-solid fa-house"></i></button>
-        <button onclick="window.getAiInsight()" class="w-14 h-14 ai-gradient rounded-2xl flex items-center justify-center -mt-12 border-4 border-slate-900 shadow-lg transform active:scale-90 transition-all"><i class="fa-solid fa-sparkles text-white"></i></button>
-        <button onclick="alert('Đã lưu vào bộ nhớ trình duyệt!')" class="hover:text-emerald-400 transition-all"><i class="fa-solid fa-cloud"></i></button>
+    <!-- AI Modal -->
+    <div id="ai-modal" class="fixed inset-0 bg-slate-900/95 hidden items-center justify-center z-[100] p-6 backdrop-blur-md transition-all">
+        <div class="card p-8 w-full max-w-sm border-none shadow-2xl relative overflow-hidden animate-pop">
+            <div class="absolute top-0 left-0 w-full h-1.5 ai-gradient"></div>
+            <div class="flex flex-col items-center">
+                <div id="ai-icon-box" class="w-16 h-16 bg-slate-50 text-emerald-500 rounded-2xl flex items-center justify-center mb-6 text-2xl shadow-inner border border-slate-100">
+                    <i class="fa-solid fa-sparkles animate-pulse"></i>
+                </div>
+                <h2 class="font-black text-slate-900 mb-2 text-base tracking-tight uppercase text-center">✨ Gemini Cloud Intelligence</h2>
+                <div id="ai-content" class="text-xs text-slate-600 leading-relaxed min-h-[100px] max-h-[250px] overflow-y-auto italic px-2 text-center whitespace-pre-wrap">Đang phân tích...</div>
+                <div class="mt-8 flex gap-3 w-full">
+                    <button onclick="window.speakResult()" class="flex-1 py-4 bg-slate-100 text-slate-900 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2"><i class="fa-solid fa-volume-high"></i> Nghe</button>
+                    <button onclick="window.closeAiModal()" class="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom App Bar -->
+    <nav class="fixed bottom-6 left-6 right-6 bg-slate-900/95 text-white rounded-[32px] py-4 px-10 flex justify-between items-center shadow-2xl z-[150] border border-white/5 backdrop-blur-md">
+        <button onclick="window.setTab('finance')" class="w-10 h-10 flex items-center justify-center hover:text-emerald-400 transition-all"><i class="fa-solid fa-wallet"></i></button>
+        <div class="relative">
+            <div class="absolute inset-0 bg-emerald-400 blur-2xl opacity-30"></div>
+            <button onclick="window.getAiInsight()" class="relative w-14 h-14 ai-gradient rounded-2xl flex items-center justify-center -mt-12 border-[5px] border-slate-900 shadow-2xl transform active:scale-95 transition-all">
+                <i class="fa-solid fa-wand-magic-sparkles text-white text-xl"></i>
+            </button>
+        </div>
+        <button onclick="window.setTab('tasks')" class="w-10 h-10 flex items-center justify-center hover:text-emerald-400 transition-all"><i class="fa-solid fa-list-check"></i></button>
     </nav>
 
     <script type="module">
-        // --- CẤU HÌNH DỮ LIỆU ---
-        let data = JSON.parse(localStorage.getItem('ledger_data')) || { finance: [], tasks: [] };
+        const apiKey = ""; // Gemini API Key
+        let data = { finance: [], tasks: [] };
         let currentTab = 'finance';
+        let commandBuffer = "";
+        let lastAiText = "";
+        let chartInstance = null;
+        let currentUser = null;
 
-        // --- HÀM XỬ LÝ CHÍNH ---
-        window.setTab = (t) => {
-            currentTab = t;
-            document.getElementById('tab-f').className = t === 'finance' ? 'text-xs font-black tracking-widest tab-active pb-2' : 'text-xs font-black tracking-widest text-slate-400 pb-2';
-            document.getElementById('tab-t').className = t === 'tasks' ? 'text-xs font-black tracking-widest tab-active pb-2' : 'text-xs font-black tracking-widest text-slate-400 pb-2';
-            render();
+        // Firebase Setup
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const { initializeApp } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js");
+        const { getAuth, signInAnonymously, onAuthStateChanged, signOut, signInWithCustomToken } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
+        const { getFirestore, doc, onSnapshot, setDoc, collection } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'ledger-sync-pro';
+
+        // --- AUTH LOGIC ---
+        const initAuth = async () => {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                // Tạm thời cho phép ẩn danh để demo, thực tế nên dùng Login thật
+                await signInAnonymously(auth);
+            }
         };
 
-        window.handleSubmit = () => {
+        document.getElementById('login-btn').onclick = () => {
+            document.getElementById('auth-overlay').classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => document.getElementById('auth-overlay').classList.add('hidden'), 500);
+            initAuth();
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('auth-overlay').classList.add('hidden');
+                const info = document.getElementById('user-info');
+                info.innerText = `User: ${user.uid.substring(0, 8)}...`;
+                info.classList.remove('hidden');
+                
+                // --- FIRESTORE SYNC (RULE 1 & 2) ---
+                const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'ledger_v5_sync');
+                onSnapshot(docRef, (snap) => {
+                    if (snap.exists()) {
+                        data = snap.data();
+                        render();
+                    } else {
+                        // Khởi tạo dữ liệu mới nếu chưa có
+                        data = { finance: [], tasks: [] };
+                        render();
+                    }
+                }, (err) => console.error("Firestore Error:", err));
+
+                window.cloudSave = async () => {
+                    if (!auth.currentUser) return;
+                    await setDoc(docRef, data);
+                };
+            } else {
+                document.getElementById('auth-overlay').classList.remove('hidden');
+            }
+        });
+
+        window.handleLogout = () => {
+            if(confirm("Bạn muốn đăng xuất?")) signOut(auth).then(() => location.reload());
+        };
+
+        // --- AI ENGINE (Gemini 2.5 Flash) ---
+        async function fetchGemini(prompt, systemMsg, imageData = null) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const parts = [{ text: prompt }];
+            if (imageData) parts.push({ inlineData: { mimeType: "image/png", data: imageData } });
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ role: "user", parts }],
+                        systemInstruction: { parts: [{ text: systemMsg }] }
+                    })
+                });
+                const result = await response.json();
+                return result.candidates?.[0]?.content?.parts?.[0]?.text || "AI bận rồi!";
+            } catch (error) { return "Lỗi AI!"; }
+        }
+
+        // --- UI & RENDER ---
+        window.setTab = (t) => { currentTab = t; render(); };
+
+        window.handleSubmit = async () => {
             const input = document.getElementById('main-input');
             const val = input.value.trim();
             if (!val) return;
 
-            // Xử lý phân tích nhanh tiếng Việt
+            // Xử lý ghi nhớ lệnh AI
+            if (val.length > 15 && !val.match(/\d/)) {
+                commandBuffer = val; input.value = ""; window.updateContextUI(); return;
+            }
+
             const moneyMatch = val.match(/(\d+)\s*(k|K|000|đ|d)/i);
             const now = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
             if (moneyMatch) {
-                // Là tài chính
                 let amt = parseInt(moneyMatch[1]);
                 if (moneyMatch[2].toLowerCase() === 'k') amt *= 1000;
-                const name = val.replace(moneyMatch[0], '').trim() || "Tiêu dùng";
-                data.finance.unshift({ name, amt, date: now });
-                currentTab = 'finance';
+                data.finance.unshift({ name: val.replace(moneyMatch[0], '').trim() || "Chi tiêu", amt, date: now, timestamp: Date.now() });
             } else {
-                // Là công việc
                 data.tasks.unshift({ name: val, done: false, date: now });
-                currentTab = 'tasks';
             }
 
             input.value = "";
-            save();
-            window.setTab(currentTab);
-        };
-
-        window.delItem = (i) => {
-            data[currentTab].splice(i, 1);
-            save();
+            await window.cloudSave();
             render();
         };
 
-        window.toggleTask = (i) => {
-            data.tasks[i].done = !data.tasks[i].done;
-            save();
-            render();
+        window.handleImageUpload = async (input) => {
+            if (!input.files[0]) return;
+            window.openAiModal("Gemini đang đọc ảnh...");
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const b64 = e.target.result.split(',')[1];
+                const ctx = commandBuffer || "Tự động.";
+                const sys = `AI tài chính. Lệnh: "${ctx}". Trả JSON: {"type":"finance"|"task","name":"tên","amt":số,"insight":"giải thích"}.`;
+                const res = await fetchGemini("Xử lý ảnh.", sys, b64);
+                try {
+                    const result = JSON.parse(res.replace(/```json|```/g, "").trim());
+                    const now = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                    if (result.type === 'finance') data.finance.unshift({ name: result.name, amt: result.amt, date: now, timestamp: Date.now() });
+                    else data.tasks.unshift({ name: result.name, done: false, date: now });
+                    
+                    lastAiText = result.insight;
+                    document.getElementById('ai-content').innerText = `✨ ${result.insight}`;
+                    commandBuffer = ""; window.updateContextUI();
+                    await window.cloudSave();
+                    render();
+                } catch { document.getElementById('ai-content').innerText = "AI không hiểu ảnh, hãy thử lại!"; }
+            };
+            reader.readAsDataURL(input.files[0]);
         };
 
-        window.clearAll = () => {
-            if(confirm("Bạn có chắc muốn xóa hết dữ liệu trên máy này không?")) {
-                data = { finance: [], tasks: [] };
-                save();
-                render();
-            }
+        window.getAiInsight = async () => {
+            window.openAiModal("✨ Đang kết nối Gemini...");
+            const log = data.finance.slice(0, 10).map(f => `${f.name}: ${f.amt}`).join(',');
+            const res = await fetchGemini(`Dữ liệu: ${log}. Tóm tắt tài chính ngắn gọn 1 câu.`, "Chuyên gia tài chính.");
+            lastAiText = res;
+            document.getElementById('ai-content').innerText = res;
         };
 
-        window.getAiInsight = () => {
-            const total = data.finance.reduce((s, x) => s + x.amt, 0);
-            alert(`Tạm tính: Bạn đã chi ${total.toLocaleString()}đ. Hãy nhập thêm dữ liệu để AI phân tích kỹ hơn!`);
+        window.updateContextUI = () => {
+            const container = document.getElementById('context-container');
+            container.innerHTML = commandBuffer ? `<div class="bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl text-[9px] font-black text-emerald-600 flex gap-2 animate-pop"><span>✨ ${commandBuffer}</span><button onclick="commandBuffer='';window.updateContextUI()">×</button></div>` : "";
         };
 
-        function save() {
-            localStorage.setItem('ledger_data', JSON.stringify(data));
-        }
-
-        function render() {
+        window.render = () => {
             const list = document.getElementById('list-container');
             const totalM = data.finance.reduce((s, x) => s + (x.amt || 0), 0);
             const totalT = data.tasks.filter(x => !x.done).length;
@@ -151,78 +300,51 @@
             document.getElementById('total-money').innerText = totalM.toLocaleString() + 'đ';
             document.getElementById('total-tasks').innerText = totalT;
 
+            document.getElementById('tab-f').className = currentTab === 'finance' ? 'text-[10px] font-black tracking-widest tab-active pb-2 uppercase' : 'text-[10px] font-black tracking-widest text-slate-400 pb-2 uppercase';
+            document.getElementById('tab-t').className = currentTab === 'tasks' ? 'text-[10px] font-black tracking-widest tab-active pb-2 uppercase' : 'text-[10px] font-black tracking-widest text-slate-400 pb-2 uppercase';
+
             const items = data[currentTab] || [];
             if (items.length === 0) {
-                list.innerHTML = `<div class="text-center py-20 text-slate-300 text-[10px] font-black uppercase tracking-widest italic opacity-50">Chưa có dữ liệu</div>`;
+                list.innerHTML = `<p class="text-center py-20 text-[10px] font-bold text-slate-300 uppercase tracking-widest">Trống</p>`;
                 return;
             }
 
             list.innerHTML = items.map((item, i) => `
-                <div class="card p-4 flex justify-between items-center animate-in slide-in-from-bottom-2 duration-300">
+                <div class="card p-4 flex justify-between items-center border border-slate-50 animate-pop">
                     <div class="flex items-center gap-4">
-                        ${currentTab === 'tasks' ? 
-                            `<button onclick="window.toggleTask(${i})" class="w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${item.done ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 text-transparent'}"><i class="fa-solid fa-check text-[10px]"></i></button>` : 
-                            `<div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-500"><i class="fa-solid fa-receipt text-sm"></i></div>`
-                        }
-                        <div>
-                            <p class="font-bold text-sm ${item.done ? 'line-through text-slate-300' : 'text-slate-800'}">${item.name}</p>
-                            <p class="text-[9px] text-slate-400 font-bold uppercase tracking-tight">${item.date}</p>
-                        </div>
+                        ${currentTab === 'tasks' ? `<button onclick="window.toggleTask(${i})" class="w-7 h-7 rounded-lg border-2 ${item.done ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-100'}"><i class="fa-solid fa-check text-[10px]"></i></button>` : `<div class="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-emerald-500"><i class="fa-solid fa-receipt"></i></div>`}
+                        <div><p class="font-extrabold text-sm ${item.done ? 'line-through text-slate-300' : 'text-slate-800'}">${item.name}</p><p class="text-[8px] text-slate-400 font-black uppercase mt-0.5">${item.date}</p></div>
                     </div>
-                    <div class="flex items-center gap-4">
-                        ${currentTab === 'finance' ? `<span class="font-black text-rose-500 text-sm">-${item.amt.toLocaleString()}đ</span>` : ''}
-                        <button onclick="window.delItem(${i})" class="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500"><i class="fa-solid fa-x"></i></button>
+                    <div class="flex items-center gap-3">
+                        ${currentTab === 'finance' ? `<span class="font-black text-rose-500 text-xs">-${(item.amt||0).toLocaleString()}đ</span>` : ''}
+                        <button onclick="window.delItem(${i})" class="text-slate-200 hover:text-rose-400"><i class="fa-solid fa-trash-can text-xs"></i></button>
                     </div>
-                </div>
-            `).join('');
+                </div>`).join('');
+            
+            updateChart();
+        };
+
+        function updateChart() {
+            const ctx = document.getElementById('spendChart').getContext('2d');
+            const history = [...data.finance].reverse().slice(-7);
+            if (chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: history.map(h => h.date),
+                    datasets: [{ data: history.map(h => h.amt), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.4, borderWidth: 2, pointRadius: 0 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
+            });
         }
 
-        // Enter để gửi
-        document.getElementById('main-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') window.handleSubmit(); });
-
-        // Khởi chạy
-        render();
-
-        // --- PHẦN FIREBASE (CHỈ CHẠY NẾU CÓ CONFIG) ---
-        try {
-            if (typeof __firebase_config !== 'undefined') {
-                const { initializeApp } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js");
-                const { getAuth, signInAnonymously, onAuthStateChanged } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
-                const { getFirestore, doc, onSnapshot, setDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
-                
-                const app = initializeApp(JSON.parse(__firebase_config));
-                const auth = getAuth(app);
-                const db = getFirestore(app);
-                
-                signInAnonymously(auth).then(() => {
-                    onAuthStateChanged(auth, (user) => {
-                        if (user) {
-                            document.getElementById('sync-indicator').innerText = "CLOUD SYNCED";
-                            document.getElementById('sync-indicator').classList.replace('text-slate-400', 'text-emerald-400');
-                            
-                            const docRef = doc(db, 'artifacts', (typeof __app_id !== 'undefined' ? __app_id : 'default'), 'users', user.uid, 'data', 'ledger_v10');
-                            
-                            // Lắng nghe thay đổi từ Cloud
-                            onSnapshot(docRef, (snap) => {
-                                if (snap.exists()) {
-                                    data = snap.data();
-                                    render();
-                                }
-                            });
-
-                            // Ghi đè hàm save để lưu lên Cloud
-                            const originalSave = window.save;
-                            window.save = async () => {
-                                originalSave();
-                                await setDoc(docRef, data);
-                            };
-                        }
-                    });
-                });
-            }
-        } catch (e) {
-            console.log("Running in local mode");
-        }
+        window.delItem = async (i) => { data[currentTab].splice(i, 1); await window.cloudSave(); render(); };
+        window.toggleTask = async (i) => { data.tasks[i].done = !data.tasks[i].done; await window.cloudSave(); render(); };
+        window.openAiModal = (m) => { document.getElementById('ai-content').innerText = m; document.getElementById('ai-modal').classList.remove('hidden'); document.getElementById('ai-modal').classList.add('flex'); };
+        window.closeAiModal = () => document.getElementById('ai-modal').classList.add('hidden');
+        window.clearAll = async () => { if(confirm("Xóa sạch dữ liệu đám mây?")) { data={finance:[],tasks:[]}; await window.cloudSave(); render(); } };
+        
+        document.getElementById('main-input').onkeypress = (e) => { if(e.key==='Enter') window.handleSubmit(); };
     </script>
 </body>
 </html>
