@@ -9,22 +9,25 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f1f5f9; color: #0f172a; touch-action: manipulation; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f1f5f9; color: #0f172a; touch-action: manipulation; overflow-x: hidden; }
         .tab-active { color: #10b981; position: relative; }
         .tab-active::after { content: ''; position: absolute; bottom: -8px; left: 25%; width: 50%; height: 3px; background: #10b981; border-radius: 10px; }
         .card { background: white; border-radius: 32px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); }
         .ai-gradient { background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); }
-        .btn-primary { background: #10b981; color: white; border-radius: 18px; transition: all 0.2s; font-weight: 800; }
+        .btn-primary { background: #10b981; color: white; border-radius: 18px; transition: all 0.2s; font-weight: 800; cursor: pointer; }
         .btn-primary:active { transform: scale(0.95); opacity: 0.9; }
         #chart-container { height: 160px; width: 100%; }
         .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.3); }
         .animate-pop { animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes pop { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        /* Hiệu ứng loading */
+        .loader { width: 20px; height: 20px; border: 3px solid #FFF; border-bottom-color: transparent; border-radius: 50%; display: inline-block; box-sizing: border-box; animation: rotation 1s linear infinite; }
+        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="pb-36">
 
-    <!-- Auth Overlay -->
+    <!-- Auth Overlay (Màn hình đồng bộ) -->
     <div id="auth-overlay" class="fixed inset-0 bg-slate-900 z-[200] flex items-center justify-center p-6 transition-all duration-700">
         <div class="card p-10 w-full max-w-sm text-center shadow-2xl relative overflow-hidden">
             <div class="absolute top-0 left-0 w-full h-2 ai-gradient"></div>
@@ -32,15 +35,17 @@
                 <i class="fa-solid fa-cloud-bolt text-white text-4xl"></i>
             </div>
             <h2 class="text-2xl font-extrabold text-slate-900 mb-3 tracking-tight">Cloud Sync Pro</h2>
-            <p class="text-slate-500 text-sm mb-10 leading-relaxed px-4">Đồng bộ hóa dữ liệu tức thì giữa máy tính và điện thoại của bạn.</p>
-            <button id="login-btn" class="w-full py-5 btn-primary text-xs uppercase tracking-[0.2em] shadow-xl shadow-emerald-500/20">
-                Kích hoạt đồng bộ
+            <p class="text-slate-500 text-sm mb-10 leading-relaxed px-4">Đang chuẩn bị môi trường đồng bộ dữ liệu...</p>
+            <button id="login-btn" class="w-full py-5 btn-primary text-xs uppercase tracking-[0.2em] shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3">
+                <span id="btn-text">KÍCH HOẠT ĐỒNG BỘ</span>
+                <span id="btn-loader" class="loader hidden"></span>
             </button>
+            <p id="auth-error" class="text-rose-500 text-[10px] font-bold mt-4 hidden uppercase tracking-widest"></p>
         </div>
     </div>
 
     <!-- Header Section -->
-    <header class="bg-slate-900 text-white pt-12 pb-24 px-8 rounded-b-[60px] shadow-2xl relative overflow-hidden">
+    <header id="app-header" class="bg-slate-900 text-white pt-12 pb-24 px-8 rounded-b-[60px] shadow-2xl relative overflow-hidden hidden">
         <div class="absolute top-[-10%] right-[-10%] w-96 h-96 bg-emerald-500/20 rounded-full blur-[120px]"></div>
         <div class="max-w-md mx-auto relative z-10">
             <div class="flex justify-between items-center mb-10">
@@ -53,17 +58,17 @@
                         <p class="text-[9px] text-emerald-400 font-bold uppercase tracking-widest mt-1">Smart Cloud Ledger</p>
                     </div>
                 </div>
-                <div id="user-info" class="hidden flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-2xl">
-                    <span id="user-id-display" class="text-[10px] font-bold text-slate-400">ID: ...</span>
-                    <button onclick="window.handleLogout()" class="ml-2 text-rose-400"><i class="fa-solid fa-power-off text-xs"></i></button>
+                <div id="user-info" class="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-2xl">
+                    <span id="user-id-display" class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">UID: ...</span>
+                    <button onclick="window.handleLogout()" class="ml-2 text-rose-400 hover:scale-110 transition-transform"><i class="fa-solid fa-power-off text-xs"></i></button>
                 </div>
             </div>
 
             <div class="relative">
-                <input id="main-input" type="text" placeholder="Nhập 'Cơm trưa 50k' hoặc việc cần làm..." class="w-full bg-white/10 border border-white/20 rounded-3xl py-5 pl-7 pr-28 text-white placeholder:text-slate-500 outline-none focus:bg-white/15 focus:ring-2 ring-emerald-500/30 transition-all">
+                <input id="main-input" type="text" placeholder="Ghi 'Cà phê 30k' hoặc việc..." class="w-full bg-white/10 border border-white/20 rounded-3xl py-5 pl-7 pr-28 text-white placeholder:text-slate-500 outline-none focus:bg-white/15 focus:ring-2 ring-emerald-500/30 transition-all">
                 <div class="absolute right-2 top-2 bottom-2 flex gap-1.5">
                     <button onclick="document.getElementById('image-input').click()" class="w-12 h-12 bg-white/5 hover:bg-white/10 rounded-2xl flex items-center justify-center transition-all border border-white/5"><i class="fa-solid fa-camera text-sm"></i></button>
-                    <button onclick="window.handleSubmit()" class="btn-primary w-12 h-12 flex items-center justify-center shadow-lg"><i class="fa-solid fa-plus"></i></button>
+                    <button id="add-btn" onclick="window.handleSubmit()" class="btn-primary w-12 h-12 flex items-center justify-center shadow-lg"><i class="fa-solid fa-plus"></i></button>
                 </div>
                 <input type="file" id="image-input" class="hidden" accept="image/*" onchange="window.handleImageUpload(this)">
             </div>
@@ -72,12 +77,11 @@
     </header>
 
     <!-- Main Content -->
-    <main class="max-w-md mx-auto px-6 -mt-14 relative z-20">
-        <!-- Stats Card -->
+    <main id="app-main" class="max-w-md mx-auto px-6 -mt-14 relative z-20 hidden">
         <div class="card p-8 mb-8 border border-slate-100">
             <div class="flex justify-between items-center mb-8">
                 <div>
-                    <p class="text-[10px] text-slate-400 font-extrabold uppercase tracking-[0.1em] mb-1">Tổng chi tiêu (7 ngày)</p>
+                    <p class="text-[10px] text-slate-400 font-extrabold uppercase tracking-[0.1em] mb-1">Tổng chi tiêu (7D)</p>
                     <h2 id="total-money" class="text-3xl font-extrabold text-slate-900 tracking-tight">0đ</h2>
                 </div>
                 <div class="text-right">
@@ -90,49 +94,23 @@
             </div>
         </div>
 
-        <!-- Navigation Tabs -->
         <div class="flex gap-10 mb-8 px-2">
             <button id="tab-f" onclick="window.setTab('finance')" class="text-xs font-extrabold tracking-widest tab-active uppercase transition-all">Tài chính</button>
             <button id="tab-t" onclick="window.setTab('tasks')" class="text-xs font-extrabold tracking-widest text-slate-400 uppercase transition-all">Công việc</button>
         </div>
 
-        <!-- List Content -->
-        <div id="list-container" class="space-y-4">
-            <div class="py-20 text-center opacity-20">
-                <i class="fa-solid fa-cloud-arrow-down text-5xl mb-4"></i>
-                <p class="text-xs font-bold uppercase tracking-widest">Đang kết nối Cloud...</p>
-            </div>
-        </div>
+        <div id="list-container" class="space-y-4 pb-10"></div>
     </main>
 
-    <!-- Floating Action Modal (Gemini) -->
-    <div id="ai-modal" class="fixed inset-0 bg-slate-950/90 hidden items-center justify-center z-[250] p-6 backdrop-blur-sm">
-        <div class="card p-10 w-full max-w-sm relative animate-pop">
-            <div class="flex flex-col items-center">
-                <div class="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-[28px] flex items-center justify-center mb-6 text-3xl shadow-inner">
-                    <i class="fa-solid fa-wand-magic-sparkles animate-pulse"></i>
-                </div>
-                <h3 class="font-extrabold text-slate-900 mb-3 uppercase text-[11px] tracking-[0.2em]">Gemini Intelligence</h3>
-                <div id="ai-content" class="text-sm text-slate-600 text-center leading-relaxed italic mb-8 min-h-[60px]">Đang xử lý dữ liệu đám mây...</div>
-                <button onclick="window.closeAiModal()" class="w-full py-5 bg-slate-900 text-white rounded-[20px] font-extrabold text-[10px] uppercase tracking-widest shadow-2xl">Đã hiểu</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Mobile Bottom Bar -->
-    <nav class="fixed bottom-8 left-8 right-8 glass rounded-[35px] py-4 px-10 flex justify-between items-center shadow-[0_20px_50px_rgba(0,0,0,0.15)] z-[150] border border-white">
+    <!-- Bottom Nav -->
+    <nav id="app-nav" class="fixed bottom-8 left-8 right-8 glass rounded-[35px] py-4 px-10 flex justify-between items-center shadow-[0_20px_50px_rgba(0,0,0,0.15)] z-[150] border border-white hidden">
         <button onclick="window.setTab('finance')" class="text-slate-400 hover:text-emerald-500 transition-all"><i class="fa-solid fa-wallet text-xl"></i></button>
-        <div class="relative">
-            <div class="absolute -inset-4 bg-emerald-400/20 blur-xl rounded-full"></div>
-            <button onclick="window.getAiInsight()" class="relative w-16 h-16 ai-gradient rounded-[24px] flex items-center justify-center -mt-14 border-[6px] border-white shadow-2xl transform active:scale-90 transition-all">
-                <i class="fa-solid fa-sparkles text-white text-2xl"></i>
-            </button>
-        </div>
+        <button onclick="window.getAiInsight()" class="w-16 h-16 ai-gradient rounded-[24px] flex items-center justify-center -mt-14 border-[6px] border-white shadow-2xl transform active:scale-90 transition-all"><i class="fa-solid fa-sparkles text-white text-2xl"></i></button>
         <button onclick="window.setTab('tasks')" class="text-slate-400 hover:text-emerald-500 transition-all"><i class="fa-solid fa-list-check text-xl"></i></button>
     </nav>
 
     <script type="module">
-        const apiKey = ""; // API Key Gemini
+        const apiKey = ""; // API Gemini
         let data = { finance: [], tasks: [] };
         let currentTab = 'finance';
         let chartInstance = null;
@@ -140,37 +118,46 @@
         // Firebase Setup
         const firebaseConfig = JSON.parse(__firebase_config);
         const { initializeApp } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js");
-        const { getAuth, signInAnonymously, onAuthStateChanged, signOut, signInWithCustomToken } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
+        const { getAuth, signInAnonymously, onAuthStateChanged, signOut } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
         const { getFirestore, doc, onSnapshot, setDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'sonasist-sync-v1';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'sonasist-final-v1';
 
-        // --- AUTH & DATA SYNC ---
-        const initAuth = async () => {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
-            }
+        const showError = (msg) => {
+            const errEl = document.getElementById('auth-error');
+            errEl.innerText = msg;
+            errEl.classList.remove('hidden');
+            document.getElementById('btn-loader').classList.add('hidden');
+            document.getElementById('btn-text').classList.remove('hidden');
         };
 
-        document.getElementById('login-btn').onclick = () => {
-            document.getElementById('auth-overlay').classList.add('opacity-0', 'pointer-events-none');
-            setTimeout(() => document.getElementById('auth-overlay').classList.add('hidden'), 700);
-            initAuth();
+        const showApp = () => {
+            document.getElementById('auth-overlay').classList.add('hidden');
+            document.getElementById('app-header').classList.remove('hidden');
+            document.getElementById('app-main').classList.remove('hidden');
+            document.getElementById('app-nav').classList.remove('hidden');
+        };
+
+        // --- AUTH LOGIC ---
+        document.getElementById('login-btn').onclick = async () => {
+            document.getElementById('btn-text').classList.add('hidden');
+            document.getElementById('btn-loader').classList.remove('hidden');
+            try {
+                await signInAnonymously(auth);
+            } catch (err) {
+                showError("Lỗi kết nối: " + err.message);
+            }
         };
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                document.getElementById('auth-overlay').classList.add('hidden');
-                document.getElementById('user-info').classList.remove('hidden');
+                showApp();
                 document.getElementById('user-id-display').innerText = `UID: ${user.uid.substring(0,6)}`;
 
-                // Lắng nghe dữ liệu thời gian thực (RULE 1 & 2)
-                const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'user_ledger_data');
+                const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'ledger_main');
                 onSnapshot(docRef, (snap) => {
                     if (snap.exists()) {
                         data = snap.data();
@@ -179,7 +166,7 @@
                         data = { finance: [], tasks: [] };
                         render();
                     }
-                }, (err) => console.error("Firestore Error:", err));
+                }, (err) => showError("Lỗi đồng bộ: " + err.message));
 
                 window.cloudSave = async () => {
                     if (!auth.currentUser) return;
@@ -188,9 +175,9 @@
             }
         });
 
-        window.handleLogout = () => { if(confirm("Đăng xuất khỏi Cloud?")) signOut(auth).then(() => location.reload()); };
+        window.handleLogout = () => { if(confirm("Đăng xuất?")) signOut(auth).then(() => location.reload()); };
 
-        // --- CORE LOGIC ---
+        // --- RENDER & LOGIC ---
         window.setTab = (t) => { currentTab = t; render(); };
 
         window.handleSubmit = async () => {
@@ -204,7 +191,7 @@
             if (moneyMatch) {
                 let amt = parseInt(moneyMatch[1]);
                 if (moneyMatch[2].toLowerCase() === 'k') amt *= 1000;
-                data.finance.unshift({ name: val.replace(moneyMatch[0], '').trim() || "Tiêu dùng", amt, date: now, timestamp: Date.now() });
+                data.finance.unshift({ name: val.replace(moneyMatch[0], '').trim() || "Tiêu dùng", amt, date: now });
             } else {
                 data.tasks.unshift({ name: val, done: false, date: now });
             }
@@ -227,7 +214,7 @@
 
             const items = data[currentTab] || [];
             if (items.length === 0) {
-                list.innerHTML = `<div class="py-16 text-center opacity-20"><p class="text-[10px] font-black uppercase tracking-widest">Danh sách trống</p></div>`;
+                list.innerHTML = `<div class="py-20 text-center opacity-20 font-bold uppercase text-[10px] tracking-widest">Danh sách trống</div>`;
                 updateChart();
                 return;
             }
@@ -249,7 +236,6 @@
                         <button onclick="window.delItem(${i})" class="text-slate-200 hover:text-rose-400 p-2"><i class="fa-solid fa-trash-can text-xs"></i></button>
                     </div>
                 </div>`).join('');
-            
             updateChart();
         };
 
@@ -261,56 +247,21 @@
                 type: 'line',
                 data: {
                     labels: history.map(h => h.date),
-                    datasets: [{ 
-                        data: history.map(h => h.amt), 
-                        borderColor: '#10b981', 
-                        backgroundColor: 'rgba(16, 185, 129, 0.05)', 
-                        fill: true, 
-                        tension: 0.5, 
-                        borderWidth: 4, 
-                        pointRadius: 0 
-                    }]
+                    datasets: [{ data: history.map(h => h.amt), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.05)', fill: true, tension: 0.5, borderWidth: 4, pointRadius: 0 }]
                 },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false, 
-                    plugins: { legend: { display: false } }, 
-                    scales: { 
-                        x: { display: false }, 
-                        y: { display: false } 
-                    } 
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
             });
         }
 
         window.delItem = async (i) => { data[currentTab].splice(i, 1); await window.cloudSave(); render(); };
         window.toggleTask = async (i) => { data.tasks[i].done = !data.tasks[i].done; await window.cloudSave(); render(); };
-        window.openAiModal = (m) => { document.getElementById('ai-content').innerText = m; document.getElementById('ai-modal').classList.remove('hidden'); document.getElementById('ai-modal').classList.add('flex'); };
-        window.closeAiModal = () => document.getElementById('ai-modal').classList.add('hidden');
-        
         document.getElementById('main-input').onkeypress = (e) => { if(e.key==='Enter') window.handleSubmit(); };
 
-        // --- GEMINI INSIGHT ---
-        window.getAiInsight = async () => {
-            window.openAiModal("✨ Đang phân tích dữ liệu đám mây...");
-            const log = data.finance.slice(0, 10).map(f => `${f.name}: ${f.amt}`).join(', ');
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: `Dữ liệu chi tiêu: ${log || "Chưa có"}. Phân tích ngắn gọn 1 câu khuyên người dùng.` }] }] })
-                });
-                const res = await response.json();
-                document.getElementById('ai-content').innerText = res.candidates?.[0]?.content?.parts?.[0]?.text || "Gemini đang nghỉ ngơi!";
-            } catch (e) { document.getElementById('ai-content').innerText = "Lỗi kết nối AI."; }
-        };
-
-        window.handleImageUpload = async (input) => {
-            if (!input.files[0]) return;
-            window.openAiModal("📸 Đang quét hóa đơn bằng AI...");
-            // Logic xử lý ảnh b64 ở đây nếu cần gọi Gemini Vision
-            setTimeout(() => { document.getElementById('ai-content').innerText = "Tính năng quét ảnh đang được tối ưu hóa cho tài khoản Cloud!"; }, 1500);
+        // Tự động thử đăng nhập nếu đã từng đăng nhập trước đó
+        window.onload = () => {
+            if (localStorage.getItem('firebase:auth:currentUser')) {
+                document.getElementById('login-btn').click();
+            }
         };
     </script>
 </body>
