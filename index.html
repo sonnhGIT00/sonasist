@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Smart Ledger - Powered by Gemini</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background: #f8fafc; }
+        .tab-active { color: #10b981; border-bottom: 2px solid #10b981; }
+        .card { background: white; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        input:focus { outline: none; ring: 2px solid #10b981; }
+        .loading-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+    </style>
+</head>
+<body class="pb-32">
+
+    <!-- Top Bar -->
+    <div class="bg-slate-900 text-white p-6 pb-12 rounded-b-[32px] shadow-xl">
+        <div class="max-w-md mx-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-xl font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-emerald-400"></i> AI Ledger ✨
+                </h1>
+                <button id="ai-suggest-btn" onclick="window.getAiSuggestion()" class="bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 px-3 py-1 rounded-full text-[10px] font-bold border border-emerald-500/30 transition-all">
+                    TƯ VẤN AI ✨
+                </button>
+            </div>
+            
+            <div class="relative">
+                <input id="main-input" type="text" 
+                    placeholder="Ví dụ: 'Cafe 30k' hoặc 'Học bài'" 
+                    class="w-full bg-white/10 border border-white/20 rounded-2xl py-4 pl-5 pr-14 text-white placeholder:text-slate-500 focus:bg-white/20 transition-all">
+                <button id="send-btn" onclick="window.handleSubmit()" 
+                    class="absolute right-2 top-2 bottom-2 bg-emerald-500 hover:bg-emerald-400 w-10 h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-50">
+                    <i class="fa-solid fa-arrow-up" id="send-icon"></i>
+                </button>
+            </div>
+            <p id="ai-status" class="text-[10px] text-slate-500 mt-2 italic text-center h-4"></p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="max-w-md mx-auto px-4 -mt-6">
+        <!-- Stats Summary -->
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <div class="card p-4">
+                <p class="text-[10px] text-slate-400 font-bold uppercase">Tổng chi</p>
+                <p id="total-money" class="text-xl font-black text-slate-800">0đ</p>
+            </div>
+            <div class="card p-4">
+                <p class="text-[10px] text-slate-400 font-bold uppercase">Việc cần làm</p>
+                <p id="total-tasks" class="text-xl font-black text-slate-800">0</p>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="flex border-b border-slate-200 mb-4">
+            <button id="tab-f" onclick="window.setTab('finance')" class="flex-1 py-3 text-sm font-bold tab-active">Tài chính</button>
+            <button id="tab-t" onclick="window.setTab('tasks')" class="flex-1 py-3 text-sm font-bold text-slate-400">Công việc</button>
+        </div>
+
+        <!-- List Area -->
+        <div id="list-container" class="space-y-3">
+            <!-- Items rendered here -->
+        </div>
+    </main>
+
+    <!-- Suggestion Overlay -->
+    <div id="ai-suggestion-modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[110] p-6 backdrop-blur-sm">
+        <div class="card p-6 w-full max-w-sm animate-in zoom-in-95">
+            <div class="flex items-center gap-2 text-emerald-600 mb-4">
+                <i class="fa-solid fa-robot"></i>
+                <h3 class="font-bold">Trợ lý Gemini ✨</h3>
+            </div>
+            <div id="ai-suggestion-text" class="text-sm text-slate-600 leading-relaxed mb-6">
+                <!-- AI text here -->
+            </div>
+            <button onclick="document.getElementById('ai-suggestion-modal').classList.replace('flex', 'hidden')" class="w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-xs">CẢM ƠN!</button>
+        </div>
+    </div>
+
+    <!-- Bottom Nav -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-slate-200 p-4 flex justify-around items-center z-50">
+        <button onclick="window.setTab('finance')" class="flex flex-col items-center gap-1">
+            <i class="fa-solid fa-wallet text-lg"></i>
+            <span class="text-[9px] font-bold uppercase">Tiền bạc</span>
+        </button>
+        <button onclick="window.setTab('tasks')" class="flex flex-col items-center gap-1">
+            <i class="fa-solid fa-list-check text-lg"></i>
+            <span class="text-[9px] font-bold uppercase">Nhiệm vụ</span>
+        </button>
+        <button onclick="window.showSync()" class="flex flex-col items-center gap-1">
+            <i class="fa-solid fa-cloud text-lg"></i>
+            <span class="text-[9px] font-bold uppercase">Sync</span>
+        </button>
+    </nav>
+
+    <!-- Sync Modal -->
+    <div id="modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[100] p-6 backdrop-blur-sm">
+        <div class="card p-6 w-full max-w-xs text-center animate-in zoom-in-95">
+            <h3 class="font-bold text-lg mb-2">Cloud ID</h3>
+            <p class="text-[10px] text-slate-400 mb-4 italic" id="cloud-id-status">Đang kết nối...</p>
+            <div id="cloud-id" class="bg-slate-50 p-3 rounded-lg text-[10px] font-mono break-all border mb-6 select-all">Mã của bạn</div>
+            <button onclick="document.getElementById('modal').classList.replace('flex', 'hidden')" class="w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-xs">ĐÓNG</button>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div id="toast" class="fixed top-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full text-[10px] font-bold opacity-0 transition-all pointer-events-none z-[200]"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase & Gemini Config
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const apiKey = ""; // API Key sẽ được tự động cung cấp
+
+        // State
+        let data = { finance: [], tasks: [] };
+        let currentTab = 'finance';
+        let user = null;
+
+        // --- GEMINI API INTEGRATION ---
+
+        async function callGemini(prompt, isJson = false) {
+            const body = { 
+                contents: [{ parts: [{ text: prompt }] }] 
+            };
+            if (isJson) {
+                body.generationConfig = { 
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            type: { type: "STRING" }, // "finance" or "task"
+                            name: { type: "STRING" },
+                            amount: { type: "NUMBER" },
+                            message: { type: "STRING" }
+                        },
+                        required: ["type", "name", "amount", "message"]
+                    }
+                };
+            }
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            
+            // Retry logic with backoff
+            for (let i = 0; i < 5; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    if (!response.ok) throw new Error('API Fail');
+                    const result = await response.json();
+                    return result.candidates?.[0]?.content?.parts?.[0]?.text;
+                } catch (err) {
+                    if (i === 4) throw err;
+                    await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
+                }
+            }
+        }
+
+        async function speak(text) {
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: `Say in Vietnamese: ${text}` }] }],
+                        generationConfig: {
+                            responseModalities: ["AUDIO"],
+                            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } }
+                        }
+                    })
+                });
+                const result = await response.json();
+                const pcmData = result.candidates[0].content.parts[0].inlineData.data;
+                const audioBlob = pcmToWav(pcmData, 24000); // 24kHz common for TTS
+                const audio = new Audio(URL.createObjectURL(audioBlob));
+                audio.play();
+            } catch (e) { console.warn("TTS failed", e); }
+        }
+
+        function pcmToWav(base64Pcm, sampleRate) {
+            const pcmBuffer = Uint8Array.from(atob(base64Pcm), c => c.charCodeAt(0)).buffer;
+            const wavHeader = new ArrayBuffer(44);
+            const view = new DataView(wavHeader);
+            view.setUint32(0, 0x52494646, false); // "RIFF"
+            view.setUint32(4, 36 + pcmBuffer.byteLength, true);
+            view.setUint32(8, 0x57415645, false); // "WAVE"
+            view.setUint32(12, 0x666d7420, false); // "fmt "
+            view.setUint16(16, 16, true);
+            view.setUint16(20, 1, true); // PCM
+            view.setUint16(22, 1, true); // Mono
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            view.setUint32(36, 0x64617461, false); // "data"
+            view.setUint32(40, pcmBuffer.byteLength, true);
+            return new Blob([wavHeader, pcmBuffer], { type: 'audio/wav' });
+        }
+
+        window.getAiSuggestion = async () => {
+            if (!apiKey) return window.showToast("Đang khởi tạo AI...");
+            const modal = document.getElementById('ai-suggestion-modal');
+            const textEl = document.getElementById('ai-suggestion-text');
+            
+            modal.classList.replace('hidden', 'flex');
+            textEl.innerHTML = '<p class="loading-pulse">Đang suy nghĩ...</p>';
+
+            const prompt = `Dựa vào dữ liệu này:\nTài chính: ${JSON.stringify(data.finance)}\nCông việc: ${JSON.stringify(data.tasks)}\nHãy đưa ra 1 lời khuyên tài chính ngắn gọn và 1 cách tối ưu hóa công việc trong 3 câu. Hãy nói một cách khích lệ.`;
+            
+            try {
+                const suggestion = await callGemini(prompt);
+                textEl.innerText = suggestion;
+                speak("Tôi đã có lời khuyên dành cho bạn.");
+            } catch (e) {
+                textEl.innerText = "Xin lỗi, tôi gặp chút trục trặc khi kết nối. Hãy thử lại sau nhé!";
+            }
+        };
+
+        // UI Logic
+        window.setTab = (t) => {
+            currentTab = t;
+            document.getElementById('tab-f').className = t === 'finance' ? 'flex-1 py-3 text-sm font-bold tab-active' : 'flex-1 py-3 text-sm font-bold text-slate-400';
+            document.getElementById('tab-t').className = t === 'tasks' ? 'flex-1 py-3 text-sm font-bold tab-active' : 'flex-1 py-3 text-sm font-bold text-slate-400';
+            render();
+        };
+
+        window.showToast = (m) => {
+            const t = document.getElementById('toast');
+            t.innerText = m;
+            t.style.opacity = '1';
+            setTimeout(() => t.style.opacity = '0', 2000);
+        };
+
+        window.showSync = () => {
+            document.getElementById('modal').classList.replace('hidden', 'flex');
+        };
+
+        function render() {
+            const list = document.getElementById('list-container');
+            const totalM = data.finance.reduce((s, x) => s + (Number(x.amt) || 0), 0);
+            const totalT = data.tasks.filter(x => !x.done).length;
+
+            document.getElementById('total-money').innerText = totalM.toLocaleString() + 'đ';
+            document.getElementById('total-tasks').innerText = totalT;
+
+            const items = data[currentTab];
+            if (items.length === 0) {
+                list.innerHTML = `<div class="text-center py-20 text-slate-300 text-xs italic">Danh sách trống</div>`;
+                return;
+            }
+
+            list.innerHTML = items.map((item, i) => {
+                if (currentTab === 'finance') {
+                    return `
+                        <div class="card p-4 flex justify-between items-center animate-in slide-in-from-top-2">
+                            <div>
+                                <p class="font-bold text-sm text-slate-700">${item.name}</p>
+                                <p class="text-[9px] text-slate-400">${item.date}</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="font-black text-rose-500">-${item.amt.toLocaleString()}đ</span>
+                                <button onclick="window.delItem(${i})" class="text-slate-200 hover:text-rose-400 p-1"><i class="fa-solid fa-trash-can"></i></button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="card p-4 flex justify-between items-center ${item.done ? 'bg-slate-50' : ''} animate-in slide-in-from-top-2">
+                            <div class="flex items-center gap-3">
+                                <button onclick="window.toggleTask(${i})" class="w-6 h-6 rounded border-2 flex items-center justify-center ${item.done ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200'}">
+                                    <i class="fa-solid fa-check text-[10px]"></i>
+                                </button>
+                                <p class="text-sm font-bold ${item.done ? 'line-through text-slate-400' : 'text-slate-700'}">${item.name}</p>
+                            </div>
+                            <button onclick="window.delItem(${i})" class="text-slate-200 hover:text-rose-400 p-1"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                    `;
+                }
+            }).join('');
+        }
+
+        // --- ENHANCED LOGIC WITH GEMINI ✨ ---
+        window.handleSubmit = async () => {
+            const input = document.getElementById('main-input');
+            const btn = document.getElementById('send-btn');
+            const icon = document.getElementById('send-icon');
+            const status = document.getElementById('ai-status');
+            const val = input.value.trim();
+            if (!val) return;
+
+            btn.disabled = true;
+            icon.className = "fa-solid fa-circle-notch animate-spin";
+            status.innerText = "Gemini ✨ đang phân loại...";
+
+            try {
+                const prompt = `Phân loại văn bản này: "${val}". 
+                Nếu là chi tiêu, đặt type là "finance", lấy số tiền vào amount, làm sạch tên vào name. 
+                Nếu là công việc, đặt type là "task", name là tên công việc, amount là 0.
+                Trả về JSON cực nhanh.`;
+                
+                const result = JSON.parse(await callGemini(prompt, true));
+
+                if (result.type === 'finance') {
+                    data.finance.unshift({ 
+                        name: result.name, 
+                        amt: result.amount, 
+                        date: new Date().toLocaleDateString('vi-VN') 
+                    });
+                    window.setTab('finance');
+                } else {
+                    data.tasks.unshift({ name: result.name, done: false });
+                    window.setTab('tasks');
+                }
+                
+                window.showToast(result.message || "Đã xử lý thông minh ✨");
+                speak(result.name);
+            } catch (e) {
+                // Fallback to manual parsing if AI fails
+                const moneyMatch = val.match(/(\d+)(k|K|000)/);
+                if (moneyMatch) {
+                    const amt = parseInt(moneyMatch[1]) * (moneyMatch[2].toLowerCase() === 'k' ? 1000 : 1);
+                    data.finance.unshift({ name: val.replace(moneyMatch[0], '').trim(), amt, date: new Date().toLocaleDateString('vi-VN') });
+                    window.setTab('finance');
+                } else {
+                    data.tasks.unshift({ name: val, done: false });
+                    window.setTab('tasks');
+                }
+                window.showToast("Đã lưu (Chế độ dự phòng)");
+            } finally {
+                input.value = "";
+                btn.disabled = false;
+                icon.className = "fa-solid fa-arrow-up";
+                status.innerText = "";
+                save();
+            }
+        };
+
+        window.delItem = (i) => {
+            data[currentTab].splice(i, 1);
+            save();
+        };
+
+        window.toggleTask = (i) => {
+            data.tasks[i].done = !data.tasks[i].done;
+            save();
+        };
+
+        async function save() {
+            render();
+            if (!user) return;
+            try {
+                const ref = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'v5storage');
+                await setDoc(ref, { ...data, lastUpdate: Date.now() });
+            } catch (err) { console.error(err); }
+        }
+
+        document.getElementById('main-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') window.handleSubmit();
+        });
+
+        onAuthStateChanged(auth, (u) => {
+            if (u) {
+                user = u;
+                document.getElementById('cloud-id').innerText = u.uid;
+                document.getElementById('cloud-id-status').innerText = "Cloud đã sẵn sàng";
+                const ref = doc(db, 'artifacts', appId, 'users', u.uid, 'data', 'v5storage');
+                onSnapshot(ref, (snap) => {
+                    if (snap.exists()) {
+                        data = snap.data();
+                        render();
+                    }
+                }, (err) => console.error(err));
+            }
+        });
+
+        signInAnonymously(auth).catch(e => console.error(e));
+        render();
+    </script>
+</body>
+</html>
